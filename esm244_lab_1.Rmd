@@ -1,0 +1,121 @@
+---
+title: "ESM 244 Lab 1"
+author: "Cameryn Brock"
+date: "1/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+library(janitor)
+library(kableExtra)
+
+```
+
+Read in NOAA data using the here package
+
+```{r}
+
+us_landings <- read_csv(here("data",
+                             "noaa_fisheries.csv"))
+
+```
+
+Now, make a tidy version of the data frame. 
+
+```{r}
+
+landings_tidy <- us_landings %>% 
+  janitor::clean_names() %>% 
+  mutate(state = str_to_lower(state), # change all caps values to lower case
+         afs_name = str_to_lower(afs_name)) %>% 
+  mutate(dollars_num = parse_number(dollars_usd)) # take off the dollar signs so the values are numeric instead of characters
+
+```
+
+Let's just get some information for salmon: 
+
+```{r}
+
+salmon_landings <- landings_tidy %>% 
+  mutate(afs_clean = str_remove(afs_name,
+                                pattern = "aggregate")) %>%  # remove the word aggregate
+  filter(str_detect(afs_clean, pattern = "salmon")) %>% 
+  separate(afs_clean, into = c("group", "species"),
+           sep = ", ") %>% 
+  select(-dollars_usd)
+
+```
+
+Find some grouped summary data: 
+
+Find annual total US landings and dollar value (summing across all states) for each TYPE of salmon using 'group_by()' and 'summarize()'
+
+```{r}
+
+salmon_summary <- salmon_landings %>% 
+  group_by(year, species) %>% 
+  summarize(tot_landings = sum(landings_pounds, na.rm = TRUE),
+            tot_value = sum(dollars_num, na.rm = TRUE))
+
+```
+
+Make a graph!
+
+```{r}
+
+salmon_landings_graph <- ggplot(data = salmon_summary,
+                                aes(x = year,
+                                    y = tot_landings)) +
+  geom_line(aes(color = species)) +
+  theme_minimal() + 
+  labs(x = "Year",
+       y = "Total Landings (pounds)",
+       color = "Salmon Species")
+
+salmon_landings_graph
+
+```
+
+Now we will export our graph with ggsave
+
+```{r}
+
+ggsave(plot = salmon_landings_graph,
+       here("figures",
+            "salmon_landings_cb.png"),
+       width = 8,
+       height = 5)
+
+```
+
+Make a nice kable table
+
+```{r}
+
+salmon_first_5 <- salmon_summary %>% 
+  head(5)
+
+```
+
+```{r}
+
+kable(salmon_first_5) %>% 
+  kable_styling(bootstrap_options = "striped")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
